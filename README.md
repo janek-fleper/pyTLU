@@ -1,6 +1,6 @@
 #Python driver for TLU FPGA
 
-The bitfile to be loaded onto the board can be found in the folder bitfiles. The bitfile is supposed to switch on a LED if loaded succesfully.
+The bitfile to be loaded onto the board can be found in the folder bitfiles. The bitfile Example1_1000.bit is supposed to switch on a LED if loaded succesfully.
 
 The file constants.py holds all the endpoints, requests, and eeprom addresses necessary to operate the board.
 
