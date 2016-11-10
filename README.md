@@ -1,4 +1,4 @@
-#Python driver for Zest-SC1 FPGA
+#Python driver for TLU FPGA
 
 The bitfile to be loaded onto the board can be found in the folder bitfiles. The bitfile is supposed to switch on a LED if loaded succesfully.
 
