@@ -10,6 +10,7 @@ import array
 import numpy as np
 import usb.core
 import usb.util
+import usb.backend.libusb1
 
 from constants import *
 
@@ -24,7 +25,7 @@ class Board:
 
         device.set_configuration()
 
-        self.lock = Lock()
+#        self.lock = Lock()
 
     def read_eeprom(self, address):
         return self.dev.ctrl_transfer(EP_CTRL_READ, VR_READ_EEPROM,
@@ -61,10 +62,30 @@ class Board:
                 CPUCS_REG_FX2, 0, [1])
         ret[1] = self.dev.ctrl_transfer(EP_CTRL_WRITE, ANCHOR_LOAD_INTERNAL,
                 CPUCS_REG_FX2, 0, [0])
-        print('reset_8051: {}'.format(ret))
+#        print('reset_8051: {}'.format(ret))
+
+    def open_card(self):
+        self.reset_8051()
+
+        Buffer = np.full(4096, 0, dtype=np.uint16)
+        Buffer = array.array('B', Buffer)
+
+        ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_START_CONFIG, 
+                wValue=4096, wIndex=4096,
+                data_or_wLength=array.array('B', [0, 0]), timeout=1000)
+        print('ctrl_transfer: {}'.format(ret))
+
+        pos = 0
+        while pos < len(Buffer):
+            next_pos = pos + int(MAX_TRANSFER_LENGTH)
+            print('bulk_write: {}'.format(self.dev.write(EP_CONFIG_WRITE,
+                    Buffer[pos:next_pos], timeout=1000)))
+            pos = next_pos
+            print('pos = {}'.format(pos))
 
     def byteshift(self, array):
         shifted_sum = 0
+        print(array)
         for i in range(len(array)):
             shifted_sum += array[i] * 2**(8 * (len(array) - 1 - i))
 
@@ -74,6 +95,7 @@ class Board:
     def read_bitfile_section(self, f, len_bytes):
         length = [struct.unpack('B', f.read(1))[0] for i in range(len_bytes)]
         length = self.byteshift(length)
+        print(length)
         return length, f.read(length)
 
     def open_bitfile(self):
@@ -96,7 +118,7 @@ class Board:
                     ret['image'] = self.read_bitfile_section(f, 4)
 
                 byte = f.read(1)
-
+        
         return ret
 
     def transfer_bitstream_at_once(self, bitstream):
@@ -117,37 +139,46 @@ class Board:
         self.reset_8051()
 
         bitfile = self.open_bitfile()
-        bitstream = array.array('B', bitfile['image'][1])
+        bitfile['image'] = (10240, bitfile['image'][1][:10240:])
+        bitstream = ''
+        for i in range(len(bitfile['image'][1])):
+#            print(chr(bitfile['image'][1][i]))
+            bitstream += chr(bitfile['image'][1][i])
 
-        # both variants seem to work, not really sure what that measn
-        print('vr_start_config: {}'.format(self.dev.ctrl_transfer(
-            EP_CTRL_READ, VR_START_CONFIG, 6, 10240, 2, timeout=1000)))
-            #EP_CTRL_READ, VR_START_CONFIG, 4096, 4096, 2)))
+        ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_START_CONFIG, 
+                wValue=6, wIndex=10240,
+                data_or_wLength=array.array('B', [0, 0]), timeout=1000)
+        print('ctrl_transfer: {}'.format(ret))
 
         self.transfer_bitstream_at_once(bitstream)
         #self.transfer_bitstream_in_parts(bitstream)
 
-        print('vr_config_status: {}'.format(self.dev.ctrl_transfer( \
-                            EP_CTRL_READ, VR_CONFIG_STATUS, 0, 0, 3, \
-                            timeout=1000)))
-
+        ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_CONFIG_STATUS, 
+                wValue=0, wIndex=0,
+                data_or_wLength=array.array('B', [0, 0, 0]), timeout=1000)
+        print('ctrl_transfer: {}'.format(ret))
 
     def close_board(self):
-        print('clear fpga: {}'.format(self.dev.ctrl_transfer(
-            EP_CTRL_READ, VR_START_CONFIG, 4096, 4096, 2)))
+        ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_START_CONFIG, 
+                wValue=4096, wIndex=4096,
+                data_or_wLength=array.array('B', [0, 0]), timeout=1000)
+        print('ctrl_transfer: {}'.format(ret))
 
         self.reset_8051()
 
 def find_boards():
+#    backend = usb.backend.libusb1.get_backend(find_library=lambda x: "/usr/lib/libusb-1.0.so")
+
     # devs is not None if no boards are found
     # dev is None, use find_all=False
     devs = usb.core.find(find_all=True, idVendor=VENDOR_ID,
-                            idProduct=PRODUCT_ID)
+                            idProduct=PRODUCT_ID, backend=backend)
 
     return [Board(device=dev) for dev in devs]
 
 def main():
     boards = find_boards()
+    boards[0].open_card()
     boards[0].load_bitfile_to_board()
 #    boards[0].close_board()
 
