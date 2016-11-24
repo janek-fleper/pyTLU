@@ -83,6 +83,8 @@ class Board:
             pos = next_pos
             print('pos = {}'.format(pos))
 
+        self.reset_8051()
+
     def byteshift(self, array):
         shifted_sum = 0
         print(array)
@@ -95,8 +97,21 @@ class Board:
     def read_bitfile_section(self, f, len_bytes):
         length = [struct.unpack('B', f.read(1))[0] for i in range(len_bytes)]
         length = self.byteshift(length)
-        print(length)
+#        print(length)
         return length, f.read(length)
+#        return length
+    
+    def print_bitfile(self, bitfile, length):
+        print('length = {}'.format(length))
+        f_out = open('f_out.txt', 'w')
+        for i in range(0, length, 16):
+            if ((length - i) < 16):
+                j_max = length - i
+            else:
+                j_max = 16
+            for j in range(j_max):
+                f_out.write('{:02X} '.format(bitfile[i + j]))
+            f_out.write('\n')
 
     def open_bitfile(self):
         ret = {}
@@ -118,6 +133,8 @@ class Board:
                     ret['image'] = self.read_bitfile_section(f, 4)
 
                 byte = f.read(1)
+
+        self.print_bitfile(ret['image'][1], ret['image'][0])
         
         return ret
 
@@ -139,22 +156,22 @@ class Board:
         self.reset_8051()
 
         bitfile = self.open_bitfile()
-        bitfile['image'] = (10240, bitfile['image'][1][:10240:])
-        bitstream = ''
-        for i in range(len(bitfile['image'][1])):
+#        bitfile['image'] = (10240, bitfile['image'][1][:10240:])
+#        bitstream = ''
+#        for i in range(len(bitfile['image'][1])):
 #            print(chr(bitfile['image'][1][i]))
-            bitstream += chr(bitfile['image'][1][i])
+#            bitstream += chr(bitfile['image'][1][i])
 
         ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_START_CONFIG, 
                 wValue=6, wIndex=10240,
                 data_or_wLength=array.array('B', [0, 0]), timeout=1000)
         print('ctrl_transfer: {}'.format(ret))
 
-        self.transfer_bitstream_at_once(bitstream)
-        #self.transfer_bitstream_in_parts(bitstream)
+        self.transfer_bitstream_at_once(bitfile['image'][1])
 
         ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_CONFIG_STATUS, 
                 wValue=0, wIndex=0,
+#                data_or_wLength=3, timeout=1000)
                 data_or_wLength=array.array('B', [0, 0, 0]), timeout=1000)
         print('ctrl_transfer: {}'.format(ret))
 
@@ -167,18 +184,22 @@ class Board:
         self.reset_8051()
 
 def find_boards():
-#    backend = usb.backend.libusb1.get_backend(find_library=lambda x: "/usr/lib/libusb-1.0.so")
+#    backend = usb.backend.libusb1.get_backend(find_library=lambda x:
+#                                               "/usr/lib/libusb-1.0.so")
 
     # devs is not None if no boards are found
     # dev is None, use find_all=False
+    #devs = usb.core.find(find_all=True, idVendor=VENDOR_ID,
+    #                        idProduct=PRODUCT_ID, backend=backend)
     devs = usb.core.find(find_all=True, idVendor=VENDOR_ID,
-                            idProduct=PRODUCT_ID, backend=backend)
+                            idProduct=PRODUCT_ID)
 
     return [Board(device=dev) for dev in devs]
 
 def main():
     boards = find_boards()
     boards[0].open_card()
+    boards[0].reset_8051()
     boards[0].load_bitfile_to_board()
 #    boards[0].close_board()
 
