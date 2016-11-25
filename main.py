@@ -146,19 +146,11 @@ class Board:
 
         return bitarray, length
 
-    def transfer_bitstream_at_once(self, bitstream):
-        ret = self.dev.write(EP_CONFIG_WRITE, bitstream, timeout=1000)
-#        print('bulk_write: {}'.format(ret)
-
     def load_bitfile_to_board(self):
         self.reset_8051()
 
         bitfile = self.open_bitfile()
         bitarray, length = self.modify_bitfile_image(bitfile)
-#        bitfile['image'][1] = self.modify_bitfile_image(bitfile)
-#        bit_array = [0] * 403456
-#        for i in range(bitfile['image'][0]):
-#            bit_array[i] = bitfile['image'][1][i]
 
         wValue = (length>>16)&0xffff
         wIndex = length&0xffff
@@ -167,8 +159,8 @@ class Board:
                 data_or_wLength=array.array('B', [0, 0]), timeout=1000)
 #        print('ctrl_transfer: {}'.format(ret))
 
-        #self.transfer_bitstream_at_once(bitfile['image'][1])
-        self.transfer_bitstream_at_once(bitarray)
+        ret = self.dev.write(EP_CONFIG_WRITE, bitarray, timeout=1000)
+#        print('bulk_write: {}'.format(ret))
 
         ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_CONFIG_STATUS, 
                 wValue=0, wIndex=0,
