@@ -139,16 +139,6 @@ class Board:
         ret = self.dev.write(EP_CONFIG_WRITE, bitstream, timeout=1000)
 #        print('bulk_write: {}'.format(ret)
 
-    def transfer_bitstream_in_parts(self, bitstream):
-        pos = int(0)
-        print('len(bitstream) = {}'.format(len(bitstream)))
-        while pos < len(bitstream):
-            next_pos = pos + int(MAX_TRANSFER_LENGTH)
-            print('bulk_write: {}'.format(self.dev.write(EP_CONFIG_WRITE,
-                    bitstream[pos:next_pos], timeout=1000)))
-            pos = next_pos
-            print('pos = {}'.format(pos))
-
     def load_bitfile_to_board(self):
         self.reset_8051()
 
