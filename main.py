@@ -19,13 +19,11 @@ os.environ["PYUSB_DEBUG"] = "critical"
 os.environ["PYUSB_LOG_FILENAME"] = "log/pyTLU.log"
 
 class Board:
+# device is not None if usb.core.find() does not find any boards
     def __init__(self, device=None):
-        # device is not None if usb.core.find() does not find any boards
         self.dev = device
 
         device.set_configuration()
-
-#        self.lock = Lock()
 
     def read_eeprom(self, address):
         return self.dev.ctrl_transfer(EP_CTRL_READ, VR_READ_EEPROM,
@@ -56,6 +54,7 @@ class Board:
         print('memory_size: {}'.format(self.get_memory_size()))
         print('firmware_version: {}?'.format(self.get_firmware_version()))
 
+# write 1 and 0 to ANCHOR_LOAD_INTERNAL
     def reset_8051(self):
         ret = np.array([0, 0])
         ret[0] = self.dev.ctrl_transfer(EP_CTRL_WRITE, ANCHOR_LOAD_INTERNAL,
@@ -64,24 +63,31 @@ class Board:
                 CPUCS_REG_FX2, 0, [0])
 #        print('reset_8051: {}'.format(ret))
 
+
+# Not certain if it is really necessary. According to the original driver
+# this is needed if the first configuration fails.
+# Default should be to use reset_8051() instead of open_card().
     def open_card(self):
         self.reset_8051()
-
-        Buffer = np.full(4096, 0, dtype=np.uint16)
-        Buffer = array.array('B', Buffer)
 
         ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_START_CONFIG, 
                 wValue=4096, wIndex=4096,
                 data_or_wLength=array.array('B', [0, 0]), timeout=1000)
         print('ctrl_transfer: {}'.format(ret))
 
-        pos = 0
-        while pos < len(Buffer):
-            next_pos = pos + int(MAX_TRANSFER_LENGTH)
-            print('bulk_write: {}'.format(self.dev.write(EP_CONFIG_WRITE,
-                    Buffer[pos:next_pos], timeout=1000)))
-            pos = next_pos
-            print('pos = {}'.format(pos))
+        Buffer = np.full(4096, 0, dtype=np.uint16)
+        Buffer = array.array('B', Buffer)
+
+        ret = self.dev.write(EP_CONFIG_WRITE, Buffer, timeout=1000)
+        print('bulk_write: {}'.format(ret))
+
+#        pos = 0
+ #       while pos < len(Buffer):
+ #           next_pos = pos + int(MAX_TRANSFER_LENGTH)
+ #           print('bulk_write: {}'.format(self.dev.write(EP_CONFIG_WRITE,
+ #                   Buffer[pos:next_pos], timeout=1000)))
+ #           pos = next_pos
+ #           print('pos = {}'.format(pos))
 
         self.reset_8051()
 
@@ -156,6 +162,11 @@ class Board:
         self.reset_8051()
 
         bitfile = self.open_bitfile()
+        bit_array = [0] * 403456
+        for i in range(bitfile['image'][0]):
+            bit_array[i] = bitfile['image'][1][i]
+#        bit_array
+#        bitfile['image'][1] = 
 #        bitfile['image'] = (10240, bitfile['image'][1][:10240:])
 #        bitstream = ''
 #        for i in range(len(bitfile['image'][1])):
@@ -167,7 +178,8 @@ class Board:
                 data_or_wLength=array.array('B', [0, 0]), timeout=1000)
         print('ctrl_transfer: {}'.format(ret))
 
-        self.transfer_bitstream_at_once(bitfile['image'][1])
+        #self.transfer_bitstream_at_once(bitfile['image'][1])
+        self.transfer_bitstream_at_once(bit_array)
 
         ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_CONFIG_STATUS, 
                 wValue=0, wIndex=0,
@@ -201,7 +213,7 @@ def main():
     boards[0].open_card()
     boards[0].reset_8051()
     boards[0].load_bitfile_to_board()
-#    boards[0].close_board()
+    boards[0].close_board()
 
 if __name__ == '__main__':
     main()
