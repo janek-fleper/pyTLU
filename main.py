@@ -135,6 +135,17 @@ class Board:
         
         return ret
 
+# weird size modification, no idea why it is necessary
+    def modify_bitfile_image(self, bitfile):
+        image_size = bitfile['image'][0]
+        length = (image_size + 511 + 512)&~511
+
+        bitarray = [0] * length
+        for i in range(image_size):
+            bitarray[i] = bitfile['image'][1][i]
+
+        return bitarray
+
     def transfer_bitstream_at_once(self, bitstream):
         ret = self.dev.write(EP_CONFIG_WRITE, bitstream, timeout=1000)
 #        print('bulk_write: {}'.format(ret)
@@ -143,9 +154,11 @@ class Board:
         self.reset_8051()
 
         bitfile = self.open_bitfile()
-        bit_array = [0] * 403456
-        for i in range(bitfile['image'][0]):
-            bit_array[i] = bitfile['image'][1][i]
+        bitarray = self.modify_bitfile_image(bitfile)
+#        bitfile['image'][1] = self.modify_bitfile_image(bitfile)
+#        bit_array = [0] * 403456
+#        for i in range(bitfile['image'][0]):
+#            bit_array[i] = bitfile['image'][1][i]
 
         ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_START_CONFIG, 
                 wValue=6, wIndex=10240,
@@ -153,7 +166,7 @@ class Board:
 #        print('ctrl_transfer: {}'.format(ret))
 
         #self.transfer_bitstream_at_once(bitfile['image'][1])
-        self.transfer_bitstream_at_once(bit_array)
+        self.transfer_bitstream_at_once(bitarray)
 
         ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_CONFIG_STATUS, 
                 wValue=0, wIndex=0,
