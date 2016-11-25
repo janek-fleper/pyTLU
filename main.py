@@ -3,8 +3,6 @@ import time
 import sys
 import os
 import struct
-from threading import Lock
-from enum import Enum
 
 import array
 import numpy as np
@@ -54,7 +52,7 @@ class Board:
         print('memory_size: {}'.format(self.get_memory_size()))
         print('firmware_version: {}?'.format(self.get_firmware_version()))
 
-# write 1 and 0 to ANCHOR_LOAD_INTERNAL
+# write 1 and 0 to address ANCHOR_LOAD_INTERNAL
     def reset_8051(self):
         ret = np.array([0, 0])
         ret[0] = self.dev.ctrl_transfer(EP_CTRL_WRITE, ANCHOR_LOAD_INTERNAL,
@@ -65,49 +63,39 @@ class Board:
 
 
 # Not certain if it is really necessary. According to the original driver
-# this is needed if the first configuration fails.
-# Default should be to use reset_8051() instead of open_card().
+# one should send a 4096 byte dummy configuration if the first configuration
+# fails. Default should be to use reset_8051() instead of open_card().
     def open_card(self):
         self.reset_8051()
 
         ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_START_CONFIG, 
                 wValue=4096, wIndex=4096,
                 data_or_wLength=array.array('B', [0, 0]), timeout=1000)
-        print('ctrl_transfer: {}'.format(ret))
+#        print('ctrl_transfer: {}'.format(ret))
 
         Buffer = np.full(4096, 0, dtype=np.uint16)
         Buffer = array.array('B', Buffer)
 
         ret = self.dev.write(EP_CONFIG_WRITE, Buffer, timeout=1000)
-        print('bulk_write: {}'.format(ret))
-
-#        pos = 0
- #       while pos < len(Buffer):
- #           next_pos = pos + int(MAX_TRANSFER_LENGTH)
- #           print('bulk_write: {}'.format(self.dev.write(EP_CONFIG_WRITE,
- #                   Buffer[pos:next_pos], timeout=1000)))
- #           pos = next_pos
- #           print('pos = {}'.format(pos))
+#        print('bulk_write: {}'.format(ret))
 
         self.reset_8051()
 
+# convert array [AB, CD, ...]  to ABCD...
     def byteshift(self, array):
         shifted_sum = 0
-        print(array)
         for i in range(len(array)):
             shifted_sum += array[i] * 2**(8 * (len(array) - 1 - i))
 
         return shifted_sum
 
-    # the length of the section is saved in len_bytes
+# the length of the section is saved in len_bytes
     def read_bitfile_section(self, f, len_bytes):
         length = [struct.unpack('B', f.read(1))[0] for i in range(len_bytes)]
         length = self.byteshift(length)
-#        print(length)
         return length, f.read(length)
-#        return length
     
-    def print_bitfile(self, bitfile, length):
+    def print_bitfile_to_file(self, bitfile, length):
         print('length = {}'.format(length))
         f_out = open('f_out.txt', 'w')
         for i in range(0, length, 16):
@@ -119,6 +107,8 @@ class Board:
                 f_out.write('{:02X} '.format(bitfile[i + j]))
             f_out.write('\n')
 
+# "while byte:" loops over the bitfile until the end is reached
+# struct.unpack converts byte to a readable format
     def open_bitfile(self):
         ret = {}
 
@@ -140,7 +130,7 @@ class Board:
 
                 byte = f.read(1)
 
-        self.print_bitfile(ret['image'][1], ret['image'][0])
+#        self.print_bitfile_to_file(ret['image'][1], ret['image'][0])
         
         return ret
 
@@ -183,7 +173,6 @@ class Board:
 
         ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_CONFIG_STATUS, 
                 wValue=0, wIndex=0,
-#                data_or_wLength=3, timeout=1000)
                 data_or_wLength=array.array('B', [0, 0, 0]), timeout=1000)
         print('ctrl_transfer: {}'.format(ret))
 
@@ -195,14 +184,17 @@ class Board:
 
         self.reset_8051()
 
+
+# find_all=True: devs is not None if no boards are found, so it's pointless to
+# check if any boards were found
+# find_all=False: dev is None if no board is found
+# the usb backend can be changed if required
 def find_boards():
 #    backend = usb.backend.libusb1.get_backend(find_library=lambda x:
 #                                               "/usr/lib/libusb-1.0.so")
+#    devs = usb.core.find(find_all=True, idVendor=VENDOR_ID,
+#                            idProduct=PRODUCT_ID, backend=backend)
 
-    # devs is not None if no boards are found
-    # dev is None, use find_all=False
-    #devs = usb.core.find(find_all=True, idVendor=VENDOR_ID,
-    #                        idProduct=PRODUCT_ID, backend=backend)
     devs = usb.core.find(find_all=True, idVendor=VENDOR_ID,
                             idProduct=PRODUCT_ID)
 
