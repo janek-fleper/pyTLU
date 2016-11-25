@@ -52,7 +52,6 @@ class Board:
         print('memory_size: {}'.format(self.get_memory_size()))
         print('firmware_version: {}?'.format(self.get_firmware_version()))
 
-# write 1 and 0 to address ANCHOR_LOAD_INTERNAL
     def reset_8051(self):
         ret = np.array([0, 0])
         ret[0] = self.dev.ctrl_transfer(EP_CTRL_WRITE, ANCHOR_LOAD_INTERNAL,
@@ -81,7 +80,7 @@ class Board:
 
         self.reset_8051()
 
-# convert array [AB, CD, ...]  to ABCD...
+# convert array [AB, CD, ...]  to ABCD... (in hex)
     def byteshift(self, array):
         shifted_sum = 0
         for i in range(len(array)):
@@ -95,8 +94,9 @@ class Board:
         length = self.byteshift(length)
         return length, f.read(length)
     
+# 16 bytes per row, similar to wireshark capture
     def print_bitfile_to_file(self, bitfile, length):
-        print('length = {}'.format(length))
+#        print('length = {}'.format(length))
         f_out = open('f_out.txt', 'w')
         for i in range(0, length, 16):
             if ((length - i) < 16):
@@ -106,6 +106,7 @@ class Board:
             for j in range(j_max):
                 f_out.write('{:02X} '.format(bitfile[i + j]))
             f_out.write('\n')
+        f_out.close()
 
 # "while byte:" loops over the bitfile until the end is reached
 # struct.unpack converts byte to a readable format
@@ -135,8 +136,8 @@ class Board:
         return ret
 
     def transfer_bitstream_at_once(self, bitstream):
-        print('bulk_write: {}'.format(
-            self.dev.write(EP_CONFIG_WRITE, bitstream[0:], timeout=10000)))
+        ret = self.dev.write(EP_CONFIG_WRITE, bitstream, timeout=1000)
+#        print('bulk_write: {}'.format(ret)
 
     def transfer_bitstream_in_parts(self, bitstream):
         pos = int(0)
@@ -155,18 +156,11 @@ class Board:
         bit_array = [0] * 403456
         for i in range(bitfile['image'][0]):
             bit_array[i] = bitfile['image'][1][i]
-#        bit_array
-#        bitfile['image'][1] = 
-#        bitfile['image'] = (10240, bitfile['image'][1][:10240:])
-#        bitstream = ''
-#        for i in range(len(bitfile['image'][1])):
-#            print(chr(bitfile['image'][1][i]))
-#            bitstream += chr(bitfile['image'][1][i])
 
         ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_START_CONFIG, 
                 wValue=6, wIndex=10240,
                 data_or_wLength=array.array('B', [0, 0]), timeout=1000)
-        print('ctrl_transfer: {}'.format(ret))
+#        print('ctrl_transfer: {}'.format(ret))
 
         #self.transfer_bitstream_at_once(bitfile['image'][1])
         self.transfer_bitstream_at_once(bit_array)
@@ -174,13 +168,13 @@ class Board:
         ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_CONFIG_STATUS, 
                 wValue=0, wIndex=0,
                 data_or_wLength=array.array('B', [0, 0, 0]), timeout=1000)
-        print('ctrl_transfer: {}'.format(ret))
+#        print('ctrl_transfer: {}'.format(ret))
 
     def close_board(self):
         ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_START_CONFIG, 
                 wValue=4096, wIndex=4096,
                 data_or_wLength=array.array('B', [0, 0]), timeout=1000)
-        print('ctrl_transfer: {}'.format(ret))
+#        print('ctrl_transfer: {}'.format(ret))
 
         self.reset_8051()
 
