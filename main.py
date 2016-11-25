@@ -1,5 +1,3 @@
-import logging
-import time
 import sys
 import os
 import struct
@@ -11,10 +9,6 @@ import usb.util
 import usb.backend.libusb1
 
 from constants import *
-
-# enable logging, from pyUSB tutorial
-os.environ["PYUSB_DEBUG"] = "critical"
-os.environ["PYUSB_LOG_FILENAME"] = "log/pyTLU.log"
 
 class Board:
 # device is not None if usb.core.find() does not find any boards
