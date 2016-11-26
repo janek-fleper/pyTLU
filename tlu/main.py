@@ -119,12 +119,12 @@ def find_boards():
 
     return [Board(device=dev) for dev in devs]
 
-def main():
-    boards = find_boards()
-    boards[0].open_card()
-    boards[0].reset_8051()
-    boards[0].load_bitfile_to_board()
-    boards[0].close_board()
-
-if __name__ == '__main__':
-    main()
+#def main():
+#    boards = find_boards()
+#    boards[0].open_card()
+#    boards[0].reset_8051()
+#    boards[0].load_bitfile_to_board()
+#    boards[0].close_board()
+#
+#if __name__ == '__main__':
+#    main()

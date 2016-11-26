@@ -1,6 +1,12 @@
 import struct
 import array
 
+BITFILE_NAME = 0x61
+BITFILE_PART = 0x62
+BITFILE_DATE = 0x63
+BITFILE_TIME = 0x64
+BITFILE_IMAGE = 0x65
+
 # convert array [AB, CD, ...]  to ABCD... (in hex)
 def byteshift(array):
     shifted_sum = 0
