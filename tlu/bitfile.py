@@ -18,7 +18,7 @@ def byteshift(array):
 # the length of the section is saved in len_bytes
 def read_bitfile_section(f, len_bytes):
     length = [struct.unpack('B', f.read(1))[0] for i in range(len_bytes)]
-    length = self.byteshift(length)
+    length = byteshift(length)
     return length, f.read(length)
     
 # 16 bytes per row, similar to wireshark capture
@@ -45,15 +45,15 @@ def open_bitfile(path_to_file):
             value = struct.unpack('B', byte)[0]
 
             if value == BITFILE_NAME:
-                ret['name'] = self.read_bitfile_section(f, 2)
+                ret['name'] = read_bitfile_section(f, 2)
             if value == BITFILE_PART:
-                ret['part'] = self.read_bitfile_section(f, 2)
+                ret['part'] = read_bitfile_section(f, 2)
             if value == BITFILE_DATE:
-                ret['date'] = self.read_bitfile_section(f, 2)
+                ret['date'] = read_bitfile_section(f, 2)
             if value is BITFILE_TIME:
-                ret['time'] = self.read_bitfile_section(f, 2)
+                ret['time'] = read_bitfile_section(f, 2)
             if value is BITFILE_IMAGE:
-                ret['image'] = self.read_bitfile_section(f, 4)
+                ret['image'] = read_bitfile_section(f, 4)
 
             byte = f.read(1)
 
@@ -70,4 +70,4 @@ def modify_bitfile_image(bitfile):
     for i in range(image_size):
         bitarray[i] = bitfile['image'][1][i]
 
-    return bitarray, length
+    return bitarray
