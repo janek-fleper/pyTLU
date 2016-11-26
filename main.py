@@ -54,7 +54,6 @@ class Board:
                 CPUCS_REG_FX2, 0, [0])
 #        print('reset_8051: {}'.format(ret))
 
-
 # Not certain if it is really necessary. According to the original driver
 # one should send a 4096 byte dummy configuration if the first configuration
 # fails. Default should be to use reset_8051() instead of open_card().
@@ -90,7 +89,6 @@ class Board:
     
 # 16 bytes per row, similar to wireshark capture
     def print_bitfile_to_file(self, bitfile, length):
-#        print('length = {}'.format(length))
         f_out = open('f_out.txt', 'w')
         for i in range(0, length, 16):
             if ((length - i) < 16):
