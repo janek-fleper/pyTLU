@@ -7,8 +7,7 @@ import usb.core
 import usb.util
 import usb.backend.libusb1
 
-from constants import *
-import bitfile as bf
+from tlu.constants import *
 
 class Board:
 # device is not None if usb.core.find() does not find any boards
