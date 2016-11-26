@@ -1,6 +1,5 @@
 import sys
 import os
-import struct
 
 import array
 import numpy as np
@@ -9,6 +8,7 @@ import usb.util
 import usb.backend.libusb1
 
 from constants import *
+import bitfile as bf
 
 class Board:
 # device is not None if usb.core.find() does not find any boards
@@ -73,76 +73,12 @@ class Board:
 
         self.reset_8051()
 
-# convert array [AB, CD, ...]  to ABCD... (in hex)
-    def byteshift(self, array):
-        shifted_sum = 0
-        for i in range(len(array)):
-            shifted_sum += array[i] * 2**(8 * (len(array) - 1 - i))
-
-        return shifted_sum
-
-# the length of the section is saved in len_bytes
-    def read_bitfile_section(self, f, len_bytes):
-        length = [struct.unpack('B', f.read(1))[0] for i in range(len_bytes)]
-        length = self.byteshift(length)
-        return length, f.read(length)
-    
-# 16 bytes per row, similar to wireshark capture
-    def print_bitfile_to_file(self, bitfile, length):
-        f_out = open('f_out.txt', 'w')
-        for i in range(0, length, 16):
-            if ((length - i) < 16):
-                j_max = length - i
-            else:
-                j_max = 16
-            for j in range(j_max):
-                f_out.write('{:02X} '.format(bitfile[i + j]))
-            f_out.write('\n')
-        f_out.close()
-
-# "while byte:" loops over the bitfile until the end is reached
-# struct.unpack converts byte to a readable format
-    def open_bitfile(self):
-        ret = {}
-
-        with open('bitfiles/Example1_1000.bit', mode='rb') as f:
-            byte = f.read(1)
-            while byte:
-                value = struct.unpack('B', byte)[0]
-
-                if value == BITFILE_NAME:
-                    ret['name'] = self.read_bitfile_section(f, 2)
-                if value == BITFILE_PART:
-                    ret['part'] = self.read_bitfile_section(f, 2)
-                if value == BITFILE_DATE:
-                    ret['date'] = self.read_bitfile_section(f, 2)
-                if value is BITFILE_TIME:
-                    ret['time'] = self.read_bitfile_section(f, 2)
-                if value is BITFILE_IMAGE:
-                    ret['image'] = self.read_bitfile_section(f, 4)
-
-                byte = f.read(1)
-
-#        self.print_bitfile_to_file(ret['image'][1], ret['image'][0])
-        
-        return ret
-
-# weird size modification, no idea why it is necessary
-    def modify_bitfile_image(self, bitfile):
-        image_size = bitfile['image'][0]
-        length = (image_size + 511 + 512)&~511
-
-        bitarray = [0] * length
-        for i in range(image_size):
-            bitarray[i] = bitfile['image'][1][i]
-
-        return bitarray, length
-
-    def load_bitfile_to_board(self):
+    def load_bitarray_to_board(self, bitarray):
         self.reset_8051()
 
-        bitfile = self.open_bitfile()
-        bitarray, length = self.modify_bitfile_image(bitfile)
+        length = len(bitarray)
+#        bitfile = self.open_bitfile()
+#        bitarray, length = self.modify_bitfile_image(bitfile)
 
         wValue = (length>>16)&0xffff
         wIndex = length&0xffff
