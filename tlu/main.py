@@ -53,6 +53,28 @@ class Board:
                 CPUCS_REG_FX2, 0, [0])
 #        print('reset_8051: {}'.format(ret))
 
+# Not sure why endpoint is EP_CTRL_READ and not EP_CTRL_WRITE
+    def write_register(self, index, data):
+        ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_SET_REG,
+                wValue=value, wIndex=index, data_or_wLength=data)
+#        print('write_register: {}'.format(ret))
+
+    def read_register(self, value, index, length):
+        ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_GET_REG,
+                wValue=0, wIndex=index, data_or_wLength=length)
+#        msg = ''.join([chr(x) for x in ret])
+        print('read_register: {}'.format(ret))
+        return ret
+
+# Not sure if timeout=1000 is necessary
+    def write_data(self, data):
+        assert self.dev.write(EP_DATA_WRITE, data, timeout=1000) == len(data)
+
+    def read_data(self, length):
+        ret = self.dev.write(E_DATA_READ, length, timeout=1000)
+        print('read_data: {}'.format(ret))
+        return ret
+
 # Not certain if it is really necessary. According to the original driver
 # one should send a 4096 byte dummy configuration if the first configuration
 # fails. Default should be to use reset_8051() instead of open_card().
