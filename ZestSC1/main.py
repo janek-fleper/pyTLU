@@ -218,13 +218,3 @@ def find_boards():
                             idProduct=ID_PRODUCT)
 
     return [Board(device=dev) for dev in devs]
-
-#def main():
-#    boards = find_boards()
-#    boards[0].open_card()
-#    boards[0].reset_8051()
-#    boards[0].load_bitarray_to_board()
-#    boards[0].close_board()
-#
-#if __name__ == '__main__':
-#    main()
