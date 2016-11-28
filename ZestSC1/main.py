@@ -1,12 +1,93 @@
 import sys
 import os
-
+import struct
 import array
+
 import numpy as np
 import usb.core
 import usb.util
 
-from tlu.constants import *
+ID_VENDOR = 0x165d
+ID_PRODUCT = 0x0001
+
+REQUEST = {'write_register': 0xd0, 'read_register': 0xd1,
+           'start_config': 0xd2, 'config_status': 0xd3,
+           'eeprom_write': 0xd7, 'eeprom_read': 0xd8,
+           'firmware': 0xdc, 'reset_8051': 0xa0}
+
+EEPROM = {'fpga_type': 0xfffa, 'card_id': 0xfffb,
+            'serial_number': 0xfffc, 'memory_size': 0xfff6}
+
+ENDPOINT = {'ctrl_write': 0x40, 'ctrl_read': 0xc0,
+            'data_write': 0x02, 'data_read': 0x86,
+            'int_read': 0x81}
+
+VALUE_8051 = 0xe600
+
+# convert array [AB, CD, ...]  to ABCD... (in hex)
+def byteshift(array):
+    shifted_sum = 0
+    for i in range(len(array)):
+        shifted_sum += array[i] * 2**(8 * (len(array) - 1 - i))
+
+    return shifted_sum
+
+# the length of the section is saved in len_bytes
+def read_bitfile_section(f, len_bytes):
+    length = [struct.unpack('B', f.read(1))[0] for i in range(len_bytes)]
+    length = byteshift(length)
+    return length, f.read(length)
+    
+# 16 bytes per row, similar to wireshark capture
+def print_bitfile_to_file(bitfile, length):
+    f_out = open('f_out.txt', 'w')
+    for i in range(0, length, 16):
+        if ((length - i) < 16):
+            j_max = length - i
+        else:
+            j_max = 16
+        for j in range(j_max):
+            f_out.write('{:02X} '.format(bitfile[i + j]))
+        f_out.write('\n')
+    f_out.close()
+
+# "while byte:" loops over the bitfile until the end is reached
+# struct.unpack converts byte to a readable format
+def open_bitfile(path_to_file):
+    ret = {}
+
+    with open(path_to_file, mode='rb') as f:
+        byte = f.read(1)
+        while byte:
+            value = struct.unpack('B', byte)[0]
+
+            if value == BITFILE_NAME:
+                ret['name'] = read_bitfile_section(f, 2)
+            if value == BITFILE_PART:
+                ret['part'] = read_bitfile_section(f, 2)
+            if value == BITFILE_DATE:
+                ret['date'] = read_bitfile_section(f, 2)
+            if value is BITFILE_TIME:
+                ret['time'] = read_bitfile_section(f, 2)
+            if value is BITFILE_IMAGE:
+                ret['image'] = read_bitfile_section(f, 4)
+
+            byte = f.read(1)
+
+#        self.print_bitfile_to_file(ret['image'][1], ret['image'][0])
+    
+    return ret
+
+# weird size modification, no idea why it is necessary
+def modify_bitfile_image(bitfile):
+    image_size = bitfile['image'][0]
+    length = (image_size + 511 + 512)&~511
+
+    bitarray = [0] * length
+    for i in range(image_size):
+        bitarray[i] = bitfile['image'][1][i]
+
+    return bitarray
 
 class Board:
 # device is not None if usb.core.find() does not find any boards
@@ -16,26 +97,26 @@ class Board:
         device.set_configuration()
 
     def read_eeprom(self, address):
-        return self.dev.ctrl_transfer(EP_CTRL_READ, VR_READ_EEPROM,
-                                        address, 0, 3)
-
-    def get_card_id(self):
-        return self.read_eeprom(EEPROM_CARDID_ADDRESS)[2]
+        return self.dev.ctrl_transfer(ENDPOINT['ctrl_read'],
+                        REQUEST['read_eeprom'], wValue=address, wIndex=0, 3)
 
     def get_fpga_type(self):
-        return self.read_eeprom(EEPROM_FPGA_ADDRESS)[2]
+        return self.read_eeprom(EEPROM['fpga_type'])[2]
+
+    def get_card_id(self):
+        return self.read_eeprom(EEPROM['card_id'])[2]
 
     def get_serial_number(self):
-        return np.array([self.read_eeprom(EEPROM_SERIAL_ADDRESS + i)[2]
+        return np.array([self.read_eeprom(EEPROM['serial_number'] + i)[2]
                             for i in range(4)])
 
     def get_memory_size(self):
-        return np.array([self.read_eeprom(EEPROM_MEMORY_SIZE_ADDRESS + i)[2]
+        return np.array([self.read_eeprom(EEPROM['memory_size'] + i)[2]
                             for i in range(4)])
 
     def get_firmware_version(self):
-        return np.array(self.dev.ctrl_transfer(EP_CTRL_READ,
-                            VR_GET_FIRMWARE_VER, 0, 0, 3)[0:3:])
+        return np.array(self.dev.ctrl_transfer(ENDPOINT['ctrl_read'],
+                        REQUEST['firmware'], wValue=0, wIndex=0, 3)[0:3:])
 
     def __str__(self):
         print('card_id: {}'.format(self.get_card_id()))
@@ -46,31 +127,33 @@ class Board:
 
     def reset_8051(self):
         ret = np.array([0, 0])
-        ret[0] = self.dev.ctrl_transfer(EP_CTRL_WRITE, ANCHOR_LOAD_INTERNAL,
-                CPUCS_REG_FX2, 0, [1])
-        ret[1] = self.dev.ctrl_transfer(EP_CTRL_WRITE, ANCHOR_LOAD_INTERNAL,
-                CPUCS_REG_FX2, 0, [0])
+        ret[0] = self.dev.ctrl_transfer(ENDPOINT['ctrl_write'],
+                REQUEST['reset_8051'], VALUE_8051, 0, [1])
+        ret[1] = self.dev.ctrl_transfer(ENDPOINT['ctrl_write'],
+                REQUEST['reset_8051'], VAlUE_8051, 0, [0])
 #        print('reset_8051: {}'.format(ret))
 
-# Not sure why endpoint is EP_CTRL_READ and not EP_CTRL_WRITE
+# Not sure why endpoint is 'ctrl_read' and not 'ctrl_write'
     def write_register(self, index, data):
-        ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_SET_REG,
-                wValue=value, wIndex=index, data_or_wLength=data)
+        ret = self.dev.ctrl_transfer(ENDPOINT['ctrl_read'],
+                REQUEST['write_register'], wValue=value, wIndex=index,
+                data_or_wLength=data)
 #        print('write_register: {}'.format(ret))
 
     def read_register(self, value, index, length):
-        ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_GET_REG,
-                wValue=0, wIndex=index, data_or_wLength=length)
+        ret = self.dev.ctrl_transfer(ENDPOINT['ctrl_read'],
+                REQUEST['read_register'] wValue=0, wIndex=index,
+                data_or_wLength=length)
 #        msg = ''.join([chr(x) for x in ret])
         print('read_register: {}'.format(ret))
         return ret
 
 # Not sure if timeout=1000 is necessary
     def write_data(self, data):
-        assert self.dev.write(EP_DATA_WRITE, data, timeout=1000) == len(data)
+        assert self.dev.write(ENDPOINT['data_write', data) == len(data)
 
     def read_data(self, length):
-        ret = self.dev.write(E_DATA_READ, length, timeout=1000)
+        ret = self.dev.write(ENDPOINT['data_read'], length)
         print('read_data: {}'.format(ret))
         return ret
 
@@ -80,15 +163,15 @@ class Board:
     def open_card(self):
         self.reset_8051()
 
-        ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_START_CONFIG, 
-                wValue=4096, wIndex=4096,
-                data_or_wLength=array.array('B', [0, 0]), timeout=1000)
+        ret = self.dev.ctrl_transfer(ENDPOINT['ctrl_read'],
+                REQUEST['start_config'], wValue=4096, wIndex=4096,
+                data_or_wLength=array.array('B', [0, 0]))
 #        print('ctrl_transfer: {}'.format(ret))
 
         Buffer = np.full(4096, 0, dtype=np.uint16)
         Buffer = array.array('B', Buffer)
 
-        ret = self.dev.write(EP_CONFIG_WRITE, Buffer, timeout=1000)
+        ret = self.dev.write(ENDPOINT['config_write'], Buffer)
 #        print('bulk_write: {}'.format(ret))
 
         self.reset_8051()
@@ -102,22 +185,22 @@ class Board:
 
         wValue = (length>>16)&0xffff
         wIndex = length&0xffff
-        ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_START_CONFIG, 
-                wValue=wValue, wIndex=wIndex,
+        ret = self.dev.ctrl_transfer(ENDPOINT['ctrl_read'],
+                REQUEST['start_config'], wValue=wValue, wIndex=wIndex,
                 data_or_wLength=array.array('B', [0, 0]), timeout=1000)
 #        print('ctrl_transfer: {}'.format(ret))
 
         ret = self.dev.write(EP_CONFIG_WRITE, bitarray, timeout=1000)
 #        print('bulk_write: {}'.format(ret))
 
-        ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_CONFIG_STATUS, 
-                wValue=0, wIndex=0,
+        ret = self.dev.ctrl_transfer(ENDPOINT['ctrl_read'],
+                REQUEST['config_status'], wValue=0, wIndex=0,
                 data_or_wLength=array.array('B', [0, 0, 0]), timeout=1000)
 #        print('ctrl_transfer: {}'.format(ret))
 
     def close_board(self):
-        ret = self.dev.ctrl_transfer(EP_CTRL_READ, VR_START_CONFIG, 
-                wValue=4096, wIndex=4096,
+        ret = self.dev.ctrl_transfer(ENDPOINT['ctrl_read'],
+                REQUEST['config_start'], wValue=4096, wIndex=4096,
                 data_or_wLength=array.array('B', [0, 0]), timeout=1000)
 #        print('ctrl_transfer: {}'.format(ret))
 

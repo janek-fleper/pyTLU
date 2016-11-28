@@ -7,6 +7,6 @@ setup(
     url='https://github.com/janek-fleper/pyZestSC1',
     author='Janek Fleper',
     author_email='j.fleper@gmx.de',
-    packages=['tlu'],
+    packages=['ZestSC1'],
     zip_safe=False
 )
