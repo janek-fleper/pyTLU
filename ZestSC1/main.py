@@ -2,6 +2,7 @@ import sys
 import os
 import struct
 import array
+import logging
 
 import numpy as np
 import usb.core
@@ -15,7 +16,7 @@ BITFILE = {'name': 0x61, 'part': 0x62, 'date': 0x63, 'time': 0x64,
 
 REQUEST = {'write_register': 0xd0, 'read_register': 0xd1,
            'start_config': 0xd2, 'config_status': 0xd3,
-           'eeprom_write': 0xd7, 'eeprom_read': 0xd8,
+           'weeprom_write': 0xd7, 'eeprom_read': 0xd8,
            'firmware': 0xdc, 'reset_8051': 0xa0}
 
 EEPROM = {'fpga_type': 0xfffa, 'card_id': 0xfffb,
@@ -23,7 +24,6 @@ EEPROM = {'fpga_type': 0xfffa, 'card_id': 0xfffb,
 
 ENDPOINT = {'ctrl_write': 0x0040, 'ctrl_read': 0x00c0,
             'data_write': 0x0002, 'data_read': 0x0086,
-            'config_write': 0x0002, 'config_read': 0x0086,
             'int_read': 0x0081}
 
 VALUE_8051 = 0xe600
@@ -142,23 +142,22 @@ class Board:
         ret = self.dev.ctrl_transfer(ENDPOINT['ctrl_read'],
                 REQUEST['write_register'], wValue=value, wIndex=index,
                 data_or_wLength=data, timeout=1000)
-#        print('write_register: {}'.format(ret))
+        logging.debug('write_register: {}'.format(ret))
 
     def read_register(self, value, index, length):
         ret = self.dev.ctrl_transfer(ENDPOINT['ctrl_read'],
                 REQUEST['read_register'], wValue=0, wIndex=index,
                 data_or_wLength=length, timeout=1000)
-#        msg = ''.join([chr(x) for x in ret])
-        print('read_register: {}'.format(ret))
+        logging.debug('read_register: {}'.format(ret))
         return ret
 
 # Not sure if timeout=1000 is necessary
     def write_data(self, data):
-        assert self.dev.write(ENDPOINT['data_write'], data,timeout=1000) == len(data)
+        assert self.dev.write(ENDPOINT['data_write'], data) == len(data)
 
     def read_data(self, length):
         ret = self.dev.write(ENDPOINT['data_read'], length, timeout=1000)
-        print('read_data: {}'.format(ret))
+        logging.debug('read_data: {}'.format(ret))
         return ret
 
 # Not certain if it is really necessary. According to the original driver
@@ -170,13 +169,13 @@ class Board:
         ret = self.dev.ctrl_transfer(ENDPOINT['ctrl_read'],
                 REQUEST['start_config'], wValue=4096, wIndex=4096,
                 data_or_wLength=array.array('B', [0, 0]), timeout=1000)
-#        print('ctrl_transfer: {}'.format(ret))
+        logging.debug('ctrl_transfer: {}'.format(ret))
 
         Buffer = np.full(4096, 0, dtype=np.uint16)
         Buffer = array.array('B', Buffer)
 
-        ret = self.dev.write(ENDPOINT['config_write'], Buffer, timeout=1000)
-#        print('bulk_write: {}'.format(ret))
+        ret = self.dev.write(ENDPOINT['data_write'], Buffer, timeout=1000)
+        logging.debug('bulk_write: {}'.format(ret))
 
         self.reset_8051()
 
@@ -184,29 +183,26 @@ class Board:
         self.reset_8051()
 
         length = len(bitarray)
-#        bitfile = self.open_bitfile()
-#        bitarray, length = self.modify_bitfile_image(bitfile)
-
         wValue = (length>>16)&0xffff
         wIndex = length&0xffff
         ret = self.dev.ctrl_transfer(ENDPOINT['ctrl_read'],
                 REQUEST['start_config'], wValue=wValue, wIndex=wIndex,
                 data_or_wLength=array.array('B', [0, 0]), timeout=1000)
-#        print('ctrl_transfer: {}'.format(ret))
+        logging.debug('ctrl_transfer: {}'.format(ret))
 
-        ret = self.dev.write(ENDPOINT['config_write'], bitarray)
-#        print('bulk_write: {}'.format(ret))
+        ret = self.dev.write(ENDPOINT['data_write'], bitarray)
+        logging.debug('bulk_write: {}'.format(ret))
 
         ret = self.dev.ctrl_transfer(ENDPOINT['ctrl_read'],
                 REQUEST['config_status'], wValue=0, wIndex=0,
                 data_or_wLength=array.array('B', [0, 0, 0]), timeout=1000)
-#        print('ctrl_transfer: {}'.format(ret))
+        logging.debug('ctrl_transfer: {}'.format(ret))
 
     def close_board(self):
         ret = self.dev.ctrl_transfer(ENDPOINT['ctrl_read'],
                 REQUEST['start_config'], wValue=4096, wIndex=4096,
                 data_or_wLength=array.array('B', [0, 0]), timeout=1000)
-#        print('ctrl_transfer: {}'.format(ret))
+        logging.debug('ctrl_transfer: {}'.format(ret))
 
         self.reset_8051()
 
@@ -230,7 +226,7 @@ def find_boards():
 #    boards = find_boards()
 #    boards[0].open_card()
 #    boards[0].reset_8051()
-#    boards[0].load_bitfile_to_board()
+#    boards[0].load_bitarray_to_board()
 #    boards[0].close_board()
 #
 #if __name__ == '__main__':
