@@ -5,7 +5,6 @@ import array
 import numpy as np
 import usb.core
 import usb.util
-import usb.backend.libusb1
 
 from tlu.constants import *
 
