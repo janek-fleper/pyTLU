@@ -37,7 +37,7 @@ class Board:
         return np.array(self.dev.ctrl_transfer(EP_CTRL_READ,
                             VR_GET_FIRMWARE_VER, 0, 0, 3)[0:3:])
 
-    def get_info(self):
+    def __str__(self):
         print('card_id: {}'.format(self.get_card_id()))
         print('fpga_type: {}'.format(self.get_fpga_type()))
         print('serial_number: {}'.format(self.get_serial_number()))
