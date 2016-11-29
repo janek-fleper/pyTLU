@@ -178,6 +178,11 @@ class Board:
         logging.debug('get_signal: {}'.format(ret))
         return ret
 
+    def read_int(self, length):
+        ret = self.dev.write(ENDPOINT['read_int'], lenght, timeout=1000)
+        logging.debug('read_int: {}'.format(ret))
+        return ret
+
 # Not certain if it is really necessary. According to the original driver
 # one should send a 4096 byte dummy configuration if the first configuration
 # fails. Default should be to use reset_8051() instead of open_card().
