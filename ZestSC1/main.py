@@ -143,7 +143,7 @@ class Board:
                 data_or_wLength=data, timeout=1000)
         logging.debug('write_register: {}'.format(ret))
 
-    def read_register(self, value, index, length):
+    def read_register(self, index, length):
         ret = self.dev.ctrl_transfer(ENDPOINT['read_ctrl'],
                 REQUEST['read_register'], wValue=0, wIndex=index,
                 data_or_wLength=length, timeout=1000)
