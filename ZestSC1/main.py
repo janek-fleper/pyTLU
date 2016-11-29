@@ -179,7 +179,7 @@ class Board:
         return ret
 
     def read_int(self, length):
-        ret = self.dev.write(ENDPOINT['read_int'], lenght, timeout=1000)
+        ret = self.dev.write(ENDPOINT['read_int'], length, timeout=1000)
         logging.debug('read_int: {}'.format(ret))
         return ret
 
