@@ -137,7 +137,7 @@ class Board:
 #        print('reset_8051: {}'.format(ret))
 
 # Not sure why endpoint is 'read_ctrl' and not 'write_ctrl'
-    def write_register(self, index, data):
+    def write_register(self, index, value, data):
         ret = self.dev.ctrl_transfer(ENDPOINT['read_ctrl'],
                 REQUEST['write_register'], wValue=value, wIndex=index,
                 data_or_wLength=data, timeout=1000)
