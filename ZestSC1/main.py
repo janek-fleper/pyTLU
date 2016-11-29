@@ -155,7 +155,7 @@ class Board:
         assert self.dev.write(ENDPOINT['write_data'], data) == len(data)
 
     def read_data(self, length):
-        ret = self.dev.write(ENDPOINT['read_data'], length, timeout=1000)
+        ret = self.dev.read(ENDPOINT['read_data'], length, timeout=1000)
         logging.debug('read_data: {}'.format(ret))
         return ret
 
@@ -179,7 +179,7 @@ class Board:
         return ret
 
     def read_int(self, length):
-        ret = self.dev.write(ENDPOINT['read_int'], length, timeout=1000)
+        ret = self.dev.read(ENDPOINT['read_int'], length, timeout=1000)
         logging.debug('read_int: {}'.format(ret))
         return ret
 
