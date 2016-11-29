@@ -14,7 +14,9 @@ BITFILE = {'name': 0x61, 'part': 0x62, 'date': 0x63, 'time': 0x64,
 REQUEST = {'write_register': 0xd0, 'read_register': 0xd1,
             'write_config': 0xd2, 'read_config': 0xd3,
             'write_eeprom': 0xd7, 'read_eeprom': 0xd8,
-            'firmware': 0xdc, 'reset_8051': 0xa0}
+            'firmware': 0xdc, 'reset_8051': 0xa0,
+            'signal_set': 0xd5, 'signal_get': 0xd6,
+            'signal_direction': 0xd4}
 
 EEPROM = {'fpga_type': 0xfffa, 'card_id': 0xfffb,
             'serial_number': 0xfffc, 'memory_size': 0xfff6}
@@ -156,6 +158,12 @@ class Board:
         ret = self.dev.write(ENDPOINT['read_data'], length, timeout=1000)
         logging.debug('read_data: {}'.format(ret))
         return ret
+
+    def set_signal_direction(self, direction):
+        ret = self.dev.ctrl_transfer(ENDPOINT['read_ctrl'],
+                REQUEST['signal_direction'], wValue=direction, wIndex=0,
+                data_or_wLength=1, timeout=1000)
+        logging.debug('set_signal_direction: {}'.format(ret))
 
 # Not certain if it is really necessary. According to the original driver
 # one should send a 4096 byte dummy configuration if the first configuration
