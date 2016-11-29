@@ -15,7 +15,7 @@ REQUEST = {'write_register': 0xd0, 'read_register': 0xd1,
             'write_config': 0xd2, 'read_config': 0xd3,
             'write_eeprom': 0xd7, 'read_eeprom': 0xd8,
             'firmware': 0xdc, 'reset_8051': 0xa0,
-            'signal_set': 0xd5, 'signal_get': 0xd6,
+            'set_signal': 0xd5, 'get_signal': 0xd6,
             'signal_direction': 0xd4}
 
 EEPROM = {'fpga_type': 0xfffa, 'card_id': 0xfffb,
@@ -164,6 +164,19 @@ class Board:
                 REQUEST['signal_direction'], wValue=direction, wIndex=0,
                 data_or_wLength=1, timeout=1000)
         logging.debug('set_signal_direction: {}'.format(ret))
+
+    def set_signal(self, signal):
+        ret = self.dev.ctrl_transfer(ENDPOINT['read_ctrl'],
+                REQUEST['set_signal'], wValue=signal, wIndex=0,
+                data_or_wLength=1, timeout=1000)
+        logging.debug('set_signal: {}'.format(ret))
+
+    def get_signal(self):
+        ret = self.dev.ctrl_transfer(ENDPOINT['read_ctrl'],
+                request['get_signal'], wValue=0, wIndex=0,
+                data_or_wLength=2, timeout=1000)
+        logging.debug('get_signal: {}'.format(ret))
+        return ret
 
 # Not certain if it is really necessary. According to the original driver
 # one should send a 4096 byte dummy configuration if the first configuration
