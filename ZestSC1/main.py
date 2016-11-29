@@ -137,15 +137,15 @@ class Board:
 #        print('reset_8051: {}'.format(ret))
 
 # Not sure why endpoint is 'read_ctrl' and not 'write_ctrl'
-    def write_register(self, index, value, data):
+    def write_register(self, value, index, data_or_length):
         ret = self.dev.ctrl_transfer(ENDPOINT['read_ctrl'],
                 REQUEST['write_register'], wValue=value, wIndex=index,
-                data_or_wLength=data, timeout=1000)
+                data_or_wLength=data_or_length, timeout=1000)
         logging.debug('write_register: {}'.format(ret))
 
-    def read_register(self, index, length):
+    def read_register(self, value, length):
         ret = self.dev.ctrl_transfer(ENDPOINT['read_ctrl'],
-                REQUEST['read_register'], wValue=0, wIndex=index,
+                REQUEST['read_register'], wValue=value, wIndex=0,
                 data_or_wLength=length, timeout=1000)
         logging.debug('read_register: {}'.format(ret))
         return ret
@@ -173,7 +173,7 @@ class Board:
 
     def get_signal(self):
         ret = self.dev.ctrl_transfer(ENDPOINT['read_ctrl'],
-                request['get_signal'], wValue=0, wIndex=0,
+                REQUEST['get_signal'], wValue=0, wIndex=0,
                 data_or_wLength=2, timeout=1000)
         logging.debug('get_signal: {}'.format(ret))
         return ret
